@@ -1,0 +1,393 @@
+{% extends "notes/base.html" %}
+
+{% block title %}
+Notest
+{% endblock %}
+
+{% block content %}
+<ul class="nav justify-content-end bg-dark">
+    <li class="nav-item">
+        <a class="nav-link active" href="{% url 'post_create_url' %}">Создать заметку</a>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'logout_url' %}" tabindex="-1">Выйти ({{ username }})</a>
+    </li>
+</ul>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-xl-3">
+        </div>
+        <div class="col-xl-6">
+            <h1 align="center"><span class="badge badge-primary mb-5 ">Заметки</span></h1>
+
+            <div class="container rounded-circle">
+                <div class="controls mb-4 ">
+                    {% csrf_token %}
+                    <label>Фильтр по избранному:</label>
+
+                    <button class="filter btn btn-outline-primary" id="False">Не избранное</button>
+                    <button class="filter btn btn-outline-primary" id="True">Избранное</button>
+
+                    <br /> <br />
+                    <label>Фильтр по дате:</label>
+
+                    <button class="date btn btn-outline-primary" id="all">All</button>
+                    <button class="date btn btn-outline-primary" id="day">День</button>
+                    <button class="date btn btn-outline-primary" id="week">Неделя</button>
+                    <button class="date btn btn-outline-primary" id="month">Месяц</button>
+
+                    <br /> <br />
+                    <select name="setapp" id="selkat" class="custom-select">
+                        <option selected>Категория:</option>
+                        {% for tag in category %}
+                        <option value="{{ tag.title }}">{{ tag.title }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <br /> <br />
+
+                    <!-- <input class="form-control" id="formsearch" type="text"> -->
+                    <form class="form-inline my-2 my-lg-0">
+                        <label>Поиск по заголовку:</label>
+                        <input class="form-control mr-sm-2" type="search" id="formsearch" placeholder="Search"
+                            aria-label="Search">
+                    </form>
+
+                    <br /> <br />
+
+                    <div class="input-group mb-3">
+                        <select name="setapp" class="custom-select" id="sel">
+                            <option selected>Сортировать по:</option>
+                            <option value="date">по дате (сначало старое)</option>
+                            <option value="-date">по дате (сначало новое)</option>
+                            <option value="-favorite">сначало избраное</option>
+                            <option value="favorite">сначало не избраное</option>
+                            <option value="-category">по категории (от А до Я)</option>
+                            <option value="category">по категории (от Я до А)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xl-3">
+        </div>
+        <div class="col-xl-6">
+            <div class="container" id="contpost">
+
+                {% for post in posts %}
+
+                <div class="card mb-4">
+                    {% csrf_token %}
+                    <h5 class="card-header">{{ post.date }}</h5>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ post.title }}</h5>
+                        <p class="card-text" id="bodytext">{{ post.body }}</p>
+                        <!-- <p class="card-text"><small class="text-muted">{{ post.category.all.first }}</small></p> -->
+                        <a href="{{ post.get_absolute_url }}" class="btn btn-primary">Go somewhere</a>
+                        <a href="{{ post.get_update_url }}" class="btn btn-primary">Редактировать</a>
+                        <a class="deletpost btn btn-danger" id="del{{ post.slug }}"
+                            data_catid="{{ post.slug }}">Удалить</a>
+                        <br /> <br />
+                        {% if post.favorite %}
+                        <a class="likebutton btn btn-danger added" id="like{{ post.slug }}"
+                            data_catid="{{ post.slug }}">Избраное</a>
+                        {% else %}
+                        <a class="likebutton btn btn-outline-primary" id="like{{ post.slug }}"
+                            data_catid="{{ post.slug }}">Добавить в избраное</a>
+                        {% endif %}
+                        <a class="btn btn-outline-primary rounded-pill"
+                            href="https://www.facebook.com/sharer/sharer.php?u=http://127.0.0.1:8000/{{ post.get_absolute_url }}"
+                            onclick="javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;"
+                            target="_blank" rel="nofollow">Опубликовать</a>
+
+                    </div>
+                    <div class="card-footer text-muted">
+                        {{ post.category.all.first }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-xl-2">
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block javascript %}
+{% load static %}
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#contpost').on("click", ".likebutton", function () {
+            FavoriteButton($(this).attr("data_catid"));
+        })
+
+        $('#contpost').on("click", ".deletpost", function () {
+            DeletePost($(this).attr("data_catid"));
+        })
+
+        $(document).on("change", "#sel", function (e) {
+            e.preventDefault();
+            OrderBy($(this).val());
+        })
+
+        $(document).on("click", ".date", function (e) {
+            FilterDate($(this).attr("id"));
+        })
+
+        $('.filter').click(function () {
+            FilterFavorite($(this).attr("id"));
+        })
+
+        $('#formsearch').keyup(function () {
+            Search($('#formsearch').val());
+        })
+
+        $('#selkat').change(function (e) {
+            e.preventDefault();
+            FilterCategory($(this).val());
+        })
+
+    })
+
+    //Удаление заметки
+    function DeletePost(id) {
+        $.ajax(
+            {
+                type: "GET",
+                url: "deleting_post",
+                data: {
+                    post_id: id
+                },
+                success: function (json) {
+                    redrawCard(json);
+                }
+            }
+        )
+    }
+
+    //Поиск по заголовку
+    function Search(t) {
+        $.ajax(
+            {
+                type: "POST",
+                url: '{% url "search_by_title" %}',
+                data:
+                {
+                    option: t,
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                    action: 'post',
+                },
+                success: function (json) {
+                    redrawCard(json);
+
+                },
+                error: function (xhr, errmsg, err) {
+                    $('#results').html("<div class='alert-box alert radius' data-alert>Oops! We have encountered an error: " + errmsg +
+                        " <a href='#' class='close'>&times;</a></div>"); // add the error to the dom
+                    console.log(xhr.status + ": " + xhr.responseText); // provide a bit more info about the error to the console
+                }
+            }
+        )
+    }
+
+    //Фильтр по категории
+    function FilterCategory(ter) {
+        $.ajax(
+            {
+                type: "POST",
+                url: '{% url "filter_by_category" %}',
+                data:
+                {
+                    option: ter,
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                    action: 'post',
+                },
+                success: function (json) {
+                    redrawCard(json);
+                },
+                error: function (xhr, errmsg, err) {
+                    $('#results').html("<div class='alert-box alert radius' data-alert>Oops! We have encountered an error: " + errmsg +
+                        " <a href='#' class='close'>&times;</a></div>"); // add the error to the dom
+                    console.log(xhr.status + ": " + xhr.responseText); // provide a bit more info about the error to the console
+                }
+            }
+        )
+    }
+
+    //Фильтр по дате
+    function FilterDate(id) {
+        $.ajax(
+            {
+                type: "POST",
+                url: '{% url "filter_by_date" %}',
+                data:
+                {
+                    option: id,
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                    action: 'post',
+                },
+                success: function (json) {
+                    redrawCard(json);
+                },
+                error: function (xhr, errmsg, err) {
+                    $('#results').html("<div class='alert-box alert radius' data-alert>Oops! We have encountered an error: " + errmsg +
+                        " <a href='#' class='close'>&times;</a></div>"); // add the error to the dom
+                    console.log(xhr.status + ": " + xhr.responseText); // provide a bit more info about the error to the console
+                }
+            }
+        )
+    }
+
+    //Сортировка заметок
+    function OrderBy(ter) {
+        $.ajax(
+            {
+                type: "POST",
+                url: '{% url "sorting_notes" %}',
+                data: {
+                    option: ter,
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                    action: 'post',
+                },
+                success: function (json) {
+                    redrawCard(json);
+                },
+                error: function (xhr, errmsg, err) {
+                    $('#results').html("<div class='alert-box alert radius' data-alert>Oops! We have encountered an error: " + errmsg +
+                        " <a href='#' class='close'>&times;</a></div>"); // add the error to the dom
+                    console.log(xhr.status + ": " + xhr.responseText); // provide a bit more info about the error to the console
+                }
+            }
+        )
+
+    }
+
+    //Кнопка избранное
+    function FavoriteButton(id) {
+        console.log("hello");
+        if ($('#like' + id).hasClass('added')) {
+            $.ajax(
+                {
+                    type: "GET",
+                    url: "unfavorites",
+                    data: {
+                        post_id: id
+                    },
+                    success: function (data) {
+                        $('#like' + id).removeClass('btn btn-danger');
+                        $('#like' + id).removeClass('added');
+                        $('#like' + id).addClass('btn btn-outline-primary');
+                        $('#like' + id).text('Добавить в избраное');
+                    }
+                }
+            )
+        }
+        else {
+            $.ajax(
+                {
+                    type: "GET",
+                    url: "favorites",
+                    data: {
+                        post_id: id
+                    },
+                    success: function (data) {
+                        $('#like' + id).removeClass('btn btn-outline-primary');
+                        $('#like' + id).addClass('btn btn-danger');
+                        $('#like' + id).addClass('added');
+                        $('#like' + id).text('Избраное');
+                    }
+                }
+            )
+        }
+    }
+
+    //Фильтр по избранное
+    function FilterFavorite(id) {
+        $.ajax(
+            {
+                type: "POST",
+                url: '{% url "filter_by_favorites" %}',
+                data: {
+                    option: id,
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                    action: 'post',
+                },
+                success: function (json) {
+                    redrawCard(json);
+                }
+
+            }
+        )
+    }
+
+    //Перерисовка заметок
+    function redrawCard(json) {
+        console.log(json);
+        $('.card').remove();
+        for (item in json) {
+            console.log(json[item]);
+            console.log(json[item].title);
+
+            var button_1 = 'post/' + json[item].slug;
+            var class_Like;
+            var id_Like = 'like' + json[item].slug;
+            var id_del = 'del' + json[item].slug;
+            var data_catid_Like = json[item].slug;
+
+            var pref = 'https://www.facebook.com/sharer/sharer.php?u=http://127.0.0.1:8000/' + json[item].url
+            console.log(json[item].url);
+
+            if (json[item].favorite == true) {
+                class_Like = 'likebutton btn btn-danger added';
+                text_Like = 'Избраное'
+            }
+            else {
+                class_Like = 'likebutton btn btn-outline-primary'
+                text_Like = 'Добавить в избраное'
+            }
+
+            $('<div>', {
+                class: 'card mb-4',
+                append: $('<h5>', {
+                    class: 'card-header',
+                    text: json[item].date,
+
+                })
+                    .add($('<div>', {
+                        class: 'card-body',
+                        append: $('<h5>', { class: 'card-title', text: json[item].title })
+                            .add($('<p>', { class: 'card-text', text: json[item].body }))
+                            //.add($('<p>', {
+                            //class: 'card-text',
+                            //append: $('<small>', {class: 'text-muted', text: json[item].category})
+                            //}))
+                            .add($('<a>', { class: 'btn btn-primary', text: 'Go somewhere', href: json[item].url }))
+                            .add($('<a>', { class: 'btn btn-primary', text: 'Редактировать', href: json[item].url_update }))
+                            .add($('<a>', { class: 'deletpost btn btn-danger', id: id_del, data_catid: data_catid_Like, text: 'Удалить' }))
+                            .add($('<br />'))
+                            .add($('<br />'))
+                            .add($('<a>', { class: class_Like, text: text_Like, id: id_Like, data_catid: data_catid_Like }))
+                            .add($('<a>', {
+                                class: 'btn btn-outline-primary rounded-pill', target: '_blank', text: 'Опубликовать', rel: 'nofollow',
+                                onclick: "javascript:window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=300,width=600');return false;",
+                                href: pref
+                            }))
+                    }))
+                    .add($('<div>', {
+                        class: 'card-footer text-muted',
+                        text: json[item].category
+                    }))
+
+            }).appendTo('#contpost')
+        }
+    }
+</script>
+{% endblock %}

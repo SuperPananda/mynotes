@@ -1,0 +1,17 @@
+<div class="card-body">
+    <h5 class="card-title">{{ post.title }}</h5>
+    <p class="card-text" id="bodytext">{{ post.body }}</p>
+    <p class="card-text"><small class="text-muted">{{ post.category }}</small></p>
+    <p class="card-text"><small class="text-muted">{{ post.category }}</small></p>
+    <a href="{{ post.get_absolute_url }}" class="btn btn-primary">Go somewhere</a>
+    <a href="#" class="btn btn-primary">Редактировать</a>
+    <div class="addbook">
+        {% if post.favorite %}
+        <a class="likebutton btn btn-success btn-lg added" id="like{{ post.slug }}" href="#"
+            data_catid="{{ post.slug }}">Like</a>
+        {% else %}
+        <a class="likebutton btn btn-primary btn-lg" id="like{{ post.slug }}" href="#"
+            data_catid="{{ post.slug }}">Like</a>
+        {% endif %}
+    </div>
+</div>
